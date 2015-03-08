@@ -8,3 +8,4 @@
 *.db-journal
 
 config.js
+node_modules/*
