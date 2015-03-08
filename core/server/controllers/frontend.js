@@ -335,7 +335,7 @@ frontendControllers = {
             if (!post) {
                 return next();
             }
-console.log(post);
+// console.log(post);
             function render() {
                 // If we're ready to render the page but the last param is 'edit' then we'll send you to the edit page.
                 if (params.edit) {
