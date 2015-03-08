@@ -1,0 +1,10 @@
+.idea/*
+*.iml
+*.sublime-*
+.DS_Store
+
+# Ghost DB file
+*.db
+*.db-journal
+
+config.js
