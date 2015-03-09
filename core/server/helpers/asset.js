@@ -26,12 +26,20 @@ asset = function (context, options) {
     context = context.replace(/^\//, '');
     output += context;
 
+    if (!isAdmin && config.cdn_prefix && config.cdn_prefix.length > 0) {
+        output = config.cdn_prefix + output;
+    }
+
     if (!context.match(/^favicon\.ico$/)) {
         output = utils.assetTemplate({
             source: output,
             version: config.assetHash
         });
     }
+
+    //console.log(output);
+    //console.log(context);
+    //console.log();
 
     return new hbs.handlebars.SafeString(output);
 };

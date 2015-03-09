@@ -26,8 +26,12 @@ ghost_foot = function (options) {
         foot = [];
 
     if(includeJquery) {
+        var subdir = config.paths.subdir;
+        if (config.cdn_prefix && config.cdn_prefix.length > 0) {
+            subdir = config.cdn_prefix + subdir;
+        }
         foot.push(utils.scriptTemplate({
-            source: config.paths.subdir + '/public/' + jquery,
+            source: subdir + '/public/' + jquery,
             version: config.assetHash
         }));
     }
