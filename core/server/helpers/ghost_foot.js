@@ -30,6 +30,7 @@ ghost_foot = function (options) {
         if (config.cdn_prefix && config.cdn_prefix.length > 0) {
             subdir = config.cdn_prefix + subdir;
         }
+
         foot.push(utils.scriptTemplate({
             source: subdir + '/public/' + jquery,
             version: config.assetHash

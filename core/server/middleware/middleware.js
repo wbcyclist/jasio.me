@@ -3,13 +3,17 @@
 // middleware_spec.js
 
 var _           = require('lodash'),
+    fs          = require('fs'),
     express     = require('express'),
     busboy      = require('./ghost-busboy'),
     config      = require('../config'),
+    crypto      = require('crypto'),
     path        = require('path'),
     api         = require('../api'),
     passport    = require('passport'),
+    Promise     = require('bluebird'),
     errors      = require('../errors'),
+    session     = require('cookie-session'),
     url         = require('url'),
     utils       = require('../utils'),
 
@@ -17,7 +21,8 @@ var _           = require('lodash'),
     blogApp,
     oauthServer,
     loginSecurity = [],
-    forgottenSecurity = [];
+    forgottenSecurity = [],
+    protectedSecurity = [];
 
 function isBlackListedFileType(file) {
     var blackListedFileTypes = ['.hbs', '.md', '.json'],
@@ -76,6 +81,20 @@ function sslForbiddenOrRedirect(opt) {
     return response;
 }
 
+function verifySessionHash(salt, hash) {
+    if (!salt || !hash) {
+        return Promise.resolve(false);
+    }
+
+    return api.settings.read({context: {internal: true}, key: 'password'}).then(function (response) {
+        var hasher = crypto.createHash('sha256');
+
+        hasher.update(response.settings[0].value + salt, 'utf8');
+
+        return hasher.digest('hex') === hash;
+    });
+}
+
 middleware = {
 
     // ### Authenticate Middleware
@@ -105,7 +124,7 @@ middleware = {
                     if (!user) {
                         var msg = {
                             type: 'error',
-                            message: 'Please Sign In',
+                            message: '请登录',
                             status: 'passive'
                         };
                         res.status(401);
@@ -182,7 +201,7 @@ middleware = {
             remoteAddress = req.connection.remoteAddress,
             deniedRateLimit = '',
             ipCount = '',
-            message = 'Too many attempts.',
+            message = '尝试次数太多了！',
             rateSigninPeriod = config.rateSigninPeriod || 3600,
             rateSigninAttempts = config.rateSigninAttempts || 10;
 
@@ -191,7 +210,7 @@ middleware = {
         } else if (req.body.grant_type === 'refresh_token') {
             return next();
         } else {
-            return next(new errors.BadRequestError('No username.'));
+            return next(new errors.BadRequestError('请输入用户名。'));
         }
 
         // filter entries that are older than rateSigninPeriod
@@ -208,7 +227,7 @@ middleware = {
                 'Only ' + rateSigninAttempts + ' tries per IP address every ' + rateSigninPeriod + ' seconds.',
                 'Too many login attempts.'
             );
-            message += rateSigninPeriod === 3600 ? ' Please wait 1 hour.' : ' Please try again later';
+            message += rateSigninPeriod === 3600 ? ' 请等待 1 小时。' : ' 请稍后再试';
             return next(new errors.UnauthorizedError(message));
         }
         next();
@@ -270,7 +289,7 @@ middleware = {
         }
 
         if (deniedEmailRateLimit || deniedRateLimit) {
-            message += rateForgottenPeriod === 3600 ? ' Please wait 1 hour.' : ' Please try again later';
+            message += rateForgottenPeriod === 3600 ? ' 请等待 1 小时。' : ' 请稍后再试';
             return next(new errors.UnauthorizedError(message));
         }
 
@@ -323,6 +342,153 @@ middleware = {
             }
         }
         next();
+    },
+
+    checkIsPrivate: function (req, res, next) {
+        return api.settings.read({context: {internal: true}, key: 'isPrivate'}).then(function (response) {
+            var pass = response.settings[0];
+
+            if (_.isEmpty(pass.value) || pass.value === 'false') {
+                res.isPrivateBlog = false;
+                return next();
+            }
+
+            res.isPrivateBlog = true;
+
+            return session({
+                maxAge: utils.ONE_MONTH_MS,
+                signed: false
+            })(req, res, next);
+        });
+    },
+
+    filterPrivateRoutes: function (req, res, next) {
+        if (res.isAdmin || !res.isPrivateBlog || req.url.lastIndexOf('/private/', 0) === 0) {
+            return next();
+        }
+
+        // take care of rss and sitemap 404s
+        if (req.url.lastIndexOf('/rss', 0) === 0 || req.url.lastIndexOf('/sitemap', 0) === 0) {
+            return errors.error404(req, res, next);
+        } else if (req.url.lastIndexOf('/robots.txt', 0) === 0) {
+            fs.readFile(path.join(config.paths.corePath, 'shared', 'private-robots.txt'), function (err, buf) {
+                if (err) {
+                    return next(err);
+                }
+                res.writeHead(200, {
+                    'Content-Type': 'text/plain',
+                    'Content-Length': buf.length,
+                    'Cache-Control': 'public, max-age=' + utils.ONE_HOUR_MS
+                });
+                res.end(buf);
+            });
+        } else {
+            return middleware.authenticatePrivateSession(req, res, next);
+        }
+    },
+
+    authenticatePrivateSession: function (req, res, next) {
+        var hash = req.session.token || '',
+            salt = req.session.salt || '',
+            url;
+
+        return verifySessionHash(salt, hash).then(function (isVerified) {
+            if (isVerified) {
+                return next();
+            } else {
+                url = config.urlFor({relativeUrl: '/private/'});
+                url += req.url === '/' ? '' : '?r=' + encodeURIComponent(req.url);
+                return res.redirect(url);
+            }
+        });
+    },
+
+    // This is here so a call to /private/ after a session is verified will redirect to home;
+    isPrivateSessionAuth: function (req, res, next) {
+        if (!res.isPrivateBlog) {
+            return res.redirect(config.urlFor('home', true));
+        }
+
+        var hash = req.session.token || '',
+            salt = req.session.salt || '';
+
+        return verifySessionHash(salt, hash).then(function (isVerified) {
+            if (isVerified) {
+                // redirect to home if user is already authenticated
+                return res.redirect(config.urlFor('home', true));
+            } else {
+                return next();
+            }
+        });
+    },
+
+    spamProtectedPrevention: function (req, res, next) {
+        var currentTime = process.hrtime()[0],
+            remoteAddress = req.connection.remoteAddress,
+            rateProtectedPeriod = config.rateProtectedPeriod || 3600,
+            rateProtectedAttempts = config.rateProtectedAttempts || 10,
+            ipCount = '',
+            message = '尝试次数太多了！',
+            deniedRateLimit = '',
+            password = req.body.password;
+
+        if (password) {
+            protectedSecurity.push({ip: remoteAddress, time: currentTime});
+        } else {
+            res.error = {
+                message: '请输入密码'
+            };
+            return next();
+        }
+
+        // filter entries that are older than rateProtectedPeriod
+        protectedSecurity = _.filter(protectedSecurity, function (logTime) {
+            return (logTime.time + rateProtectedPeriod > currentTime);
+        });
+
+        ipCount = _.chain(protectedSecurity).countBy('ip').value();
+        deniedRateLimit = (ipCount[remoteAddress] > rateProtectedAttempts);
+
+        if (deniedRateLimit) {
+            errors.logError(
+                'Only ' + rateProtectedAttempts + ' tries per IP address every ' + rateProtectedPeriod + ' seconds.',
+                'Too many login attempts.'
+            );
+            message += rateProtectedPeriod === 3600 ? ' 请等待 1 小时。' : ' 请稍后再试';
+            res.error = {
+                message: message
+            };
+        }
+        return next();
+    },
+
+    authenticateProtection: function (req, res, next) {
+        // if errors have been generated from the previous call
+        if (res.error) {
+            return next();
+        }
+
+        var bodyPass = req.body.password;
+
+        return api.settings.read({context: {internal: true}, key: 'password'}).then(function (response) {
+            var pass = response.settings[0],
+                hasher = crypto.createHash('sha256'),
+                salt = Date.now().toString(),
+                forward = req.query && req.query.r ? req.query.r : '/';
+
+            if (pass.value === bodyPass) {
+                hasher.update(bodyPass + salt, 'utf8');
+                req.session.token = hasher.digest('hex');
+                req.session.salt = salt;
+
+                return res.redirect(config.urlFor({relativeUrl: decodeURIComponent(forward)}));
+            } else {
+                res.error = {
+                    message: '密码错误'
+                };
+                return next();
+            }
+        });
     },
 
     busboy: busboy

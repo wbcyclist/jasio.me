@@ -10,7 +10,13 @@ var hbs             = require('express-hbs'),
 
 asset = function (context, options) {
     var output = '',
-        isAdmin = options && options.hash && options.hash.ghost;
+        isAdmin,
+        minify;
+
+    if (options && options.hash) {
+        isAdmin = options.hash.ghost;
+        minify = options.hash.minifyInProduction;
+    }
 
     output += config.paths.subdir + '/';
 
@@ -24,11 +30,18 @@ asset = function (context, options) {
 
     // Get rid of any leading slash on the context
     context = context.replace(/^\//, '');
-    output += context;
 
+    // replace ".foo" with ".min.foo" in production
+    if (utils.isProduction && minify) {
+        context = context.replace('.', '.min.');
+    }
+
+    // if has config.cdn_prefix, replace "/asset..." to "//jasioblog.qiniudn.com/cdn/asset..." (cdn_prefix="//jasioblog.qiniudn.com/")
     if (!isAdmin && config.cdn_prefix && config.cdn_prefix.length > 0) {
         output = config.cdn_prefix + output;
     }
+
+    output += context;
 
     if (!context.match(/^favicon\.ico$/)) {
         output = utils.assetTemplate({
@@ -36,10 +49,6 @@ asset = function (context, options) {
             version: config.assetHash
         });
     }
-
-    //console.log(output);
-    //console.log(context);
-    //console.log();
 
     return new hbs.handlebars.SafeString(output);
 };
