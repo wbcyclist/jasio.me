@@ -694,9 +694,8 @@ User = ghostBookshelf.Model.extend({
                         });
                 }, errors.logAndThrowError);
             }
-            return Promise.reject(new errors.NoPermissionError('由于你的账户多次尝试登陆未成功，已经被锁定。' +
-                '请点击”忘记密码？“链接，' +
-                '请重置密码并登陆！'));
+            return Promise.reject(new errors.NoPermissionError('你的账户已经被锁定。' +
+                '请点击“忘记密码？”链接，进行重置密码并登陆！'));
         }, function (error) {
             if (error.message === 'NotFound' || error.message === 'EmptyResponse') {
                 return Promise.reject(new errors.NotFoundError('此邮箱地址无对应的用户。'));
