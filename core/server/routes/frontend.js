@@ -64,6 +64,9 @@ frontendRoutes = function (middleware) {
     // Post Live Preview
     router.get('/' + routeKeywords.preview + '/:uuid', frontend.preview);
 
+    // custom page
+    router.get('/project/', frontend.custom_project);
+
     // Default
     router.get('/' + routeKeywords.page + '/:page/', frontend.homepage);
     router.get('/', frontend.homepage);

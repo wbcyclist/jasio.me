@@ -432,7 +432,8 @@ frontendControllers = {
             filters.doFilter('prePostsRender', page.posts).then(function (posts) {
                 getActiveThemePaths().then(function (paths) {
                     var customPageView = 'page-' + tag,
-                        view = 'post';
+                        view = 'post',
+                        result;
 
                     if (paths.hasOwnProperty(customPageView + '.hbs')) {
                         view = customPageView;
