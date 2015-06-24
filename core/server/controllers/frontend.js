@@ -36,12 +36,13 @@ function getPostPage(options) {
     });
 }
 
-function getTagAllPosts(tag) {
+function getTagAllPosts(tag, isStaticPages) {
     return api.settings.read('postsPerPage').then(function (response) {
         var options = {
             page: 1,
             tag: tag,
             limit: 99,
+            staticPages: isStaticPages
         };
         options.include = 'author,tags,fields';
         return api.posts.browse(options);
@@ -327,7 +328,6 @@ frontendControllers = {
             postLookup = _.pick(params, 'slug', 'id');
             // Add author, tag and fields
             postLookup.include = 'author,tags,fields,next,previous';
-
             // Query database to find post
             return api.posts.read(postLookup);
         }).then(function (result) {
@@ -422,7 +422,7 @@ frontendControllers = {
     custom_project: function (req, res, next) {
         var tag = "project";
 
-        return getTagAllPosts(tag).then(function (page) {
+        return getTagAllPosts(tag, true).then(function (page) {
             setReqCtx(req, page.posts);
             if (page.meta.filters.tags) {
                 setReqCtx(req, page.meta.filters.tags[0]);
