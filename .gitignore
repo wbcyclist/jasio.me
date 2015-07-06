@@ -11,3 +11,8 @@ config.js
 node_modules/*
 
 qiniuConfig.json
+qiniuCDN.json
+
+qiniuCDN/image/*
+
+qiniuCDN/releases/*
