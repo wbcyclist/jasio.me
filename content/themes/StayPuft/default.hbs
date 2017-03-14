@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    {{!-- Document Settings --}}
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    {{!-- Page Meta --}}
+    <title>{{meta_title}}</title>
+    <meta name="description" content="{{meta_description}}" />
+
+    {{!-- Mobile Meta --}}
+    <meta name="HandheldFriendly" content="True" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    {{!-- Brand icon --}}
+    {{#if @blog.logo}}
+        <link rel="shortcut icon" href="{{@blog.logo}}">
+    {{else}}
+        <link rel="shortcut icon" href="{{asset "favicon.ico"}}">
+    {{/if}}
+
+    {{!-- Styles'n'Scripts --}}
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="{{asset "css/screen.css"}}" />
+
+    {{!-- Ghost outputs important style and meta data with this tag --}}
+    {{ghost_head}}
+
+    {{!-- Font Awesome --}}
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+
+    {{!-- Prism --}}
+    <link rel="stylesheet" type="text/css" href="{{asset "css/prism.css"}}" />
+</head>
+
+<body class="{{body_class}}">
+
+    {{!-- Header --}}
+    <header id="site-header" {{#if @blog.cover}}style="background-image: url({{@blog.cover}})"{{/if}}>
+        <div id="site-header-content" class="inner">
+            {{#if @blog.logo}}<a class="blog-logo" href="{{@blog.url}}"><img src="{{@blog.logo}}" alt="{{@blog.title}}" /></a>{{/if}}
+            <h2 class="blog-title"><a href="{{@blog.url}}">{{@blog.title}}</a></h2>
+            <h3 class="blog-description">{{@blog.description}}</h3>
+
+            {{!-- Search --}}
+            <form id="search">
+                <input id="search-field" placeholder="Search"/>
+            </form>
+        </div>
+    </header>
+
+    {{!-- Main Content --}}
+    <main>
+        <div class="main-inner">
+            <section id="search-results"></section>
+            {{{body}}}
+        </div>
+    </main>
+
+    {{!-- Sidebar --}}
+    <div id="sidebar">
+        <div id="sidebar-content" class="inner">
+            {{!-- The blog navigation links --}}
+            <div id="sidebar-links">
+                <ul id="subscription-links">
+                    <li><a target="_blank" href="{{@blog.url}}/rss/"><i class="fa fa-rss"></i>Subscribe via RSS</a></li>
+                    {{#if @labs.subscribers}}
+                    <li><a target="_blank" href="{{@blog.url}}/subscribe/"><i class="fa fa-envelope"></i>Subscribe via email</a></li>
+                    {{/if}}
+                </ul>
+                <ul id="navigation">
+                    {{navigation}}
+                </ul>
+                <ul id="sidebar-external">
+                    {{> sidebar-external}}
+                </ul>
+            </div>
+
+            <footer class="site-footer">
+                <section class="copyright">&copy; <a href="{{@blog.url}}">{{@blog.title}}</a> {{date format="YYYY"}}</section>
+                <section class="poweredby">
+                    <i class="icon-ghost"></i><a href="https://ghost.org">Ghost</a> &amp;
+                    <a href="https://github.com/dlecina/StayPuft">StayPuft</a>
+                </section>
+            </footer>
+        </div>
+    </div>
+
+    {{!-- Scripts --}}
+
+    {{!-- jQuery --}}
+    <script src="https://code.jquery.com/jquery-3.1.1.min.js" integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8=" crossorigin="anonymous"></script>
+
+    {{!-- Ghost outputs important scripts and data with this tag --}}
+    {{ghost_foot}}
+
+    {{!-- Fitvids makes video embeds responsive and awesome --}}
+    <script type="text/javascript" src="{{asset "js/jquery.fitvids.js"}}"></script>
+
+    {{!-- The main JavaScript file for Casper --}}
+    <script type="text/javascript" src="{{asset "js/index.js"}}"></script>
+
+    {{!-- Prism --}}
+    <script type="text/javascript" src="{{asset "js/prism-loader.js"}}"></script>
+    <script type="text/javascript" src="{{asset "js/prism.js"}}"></script>
+    <script type="text/javascript">Prism.plugins.autoloader.languages_path = "{{@blog.url}}/assets/js/prism-components/";</script>
+
+    {{!-- ghostHunter --}}
+    <script src="{{asset "js/jquery.ghostHunter.min.js"}}"></script>
+    <script src="{{asset "js/jquery.ghostHunter-init.js"}}"></script>
+    
+</body>
+
+</html>
